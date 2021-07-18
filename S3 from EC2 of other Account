@@ -1,0 +1,141 @@
+#####EC2 instance access to an Amazon S3 bucket in another AWS account####
+Follow these steps to grant permissions for an Amazon EC2 instance in Account A to access a bucket in another account (Account B).
+
+From Account B, create an IAM role
+1.    Sign in to the AWS Management Console with Account B.
+
+2.    Open the AWS Identity and Access Management (IAM) console.
+
+3.    In the navigation pane, choose Roles.
+
+4.    Choose Create role.
+
+5.    For Select type of trusted entity, choose Another AWS account.
+
+6.    For Account ID, enter the account ID of Account A.
+
+7.    Choose Next: Permissions.
+
+8.    Attach a policy to the role that delegates access to Amazon S3. For example, this policy grants access for s3:GetObject on objects stored in the bucket:
+
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:GetObject",
+                "s3:ListBucket"
+            ],
+            "Resource": [
+                "arn:aws:s3:::DOC-EXAMPLE-BUCKET/*",
+                "arn:aws:s3:::DOC-EXAMPLE-BUCKET"
+            ]
+        }
+    ]
+}
+9.    Choose Next: Add tags.
+
+10.    You can add optional tags to the role. Or, you can leave the fields blank, and then choose Next: Review.
+
+11.    For Role name, enter a name for the role.
+
+12.    Choose Create role.
+
+###From Account B, get the role's ARN
+
+1.    From the IAM console's navigation pane, choose Roles.
+
+2.    Choose the IAM role that you created.
+
+3.    Note the value that's listed for Role ARN.
+
+####From Account A, create another role (instance profile) and attach it to the instance
+
+1.    Sign in to the AWS Management Console with Account A.
+
+2.    Open the IAM console.
+
+3.    From the navigation pane, choose Roles.
+
+4.    Choose Create role.
+
+5.    For Select type of trusted entity, choose AWS service.
+
+6.    For Choose the service that will use this role, choose EC2.
+
+7.    Choose Next: Permissions.
+
+8.    Choose Next: Tags.
+
+9.    You can add optional tags to the role. Or, you can leave the fields blank, and then choose Next: Review.
+
+10.    For Role name, enter a name for the role.
+
+11.    Choose Create role.
+
+12.    From the list of roles, choose the role that you just created.
+
+13.    Choose Add inline policy, and then choose the JSON view.
+
+14.    Enter the following policy. Replace arn:aws:iam::111111111111:role/ROLENAME with the Amazon Resource Name (ARN) of the IAM role that you created in Account B.
+
+{ 
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": "sts:AssumeRole",
+            "Resource": "arn:aws:iam::111111111111:role/ROLENAME"
+        }
+    ]
+}
+15.    Choose Review policy.
+
+16.    For Name, enter a name for the policy.
+
+17.    Choose Create policy.
+
+18.    Attach the IAM role (instance profile) to the Amazon EC2 instance that you use to access the Amazon S3 bucket.
+
+### From the Amazon EC2 instance, configure the role with your credentials
+
+1.    Connect to the Amazon EC2 instance. For more information, see Connect to your Linux instance or Connecting to your Windows instance.
+
+2.    After you connect to the instance, verify if the directory already has a folder named ~/.aws.
+
+To find the ~/.aws folder, run the following ls command to list the directory:
+
+ls -l ~/.aws
+3.    If you find the ~/.aws folder, proceed to the next step. If the directory doesn't have a ~/.aws folder yet, create the folder by running the mkdir command:
+
+mkdir ~/.aws/
+4.    Within the ~/.aws folder, use a text editor to create a file. Name the file config.
+
+5.    In the file, enter the following text. Replace enterprofilename with the name of the role that you attached to the instance. Then, replace arn:aws:iam::111111111111:role/ROLENAME with the ARN of the role that you created in Account B.
+
+[profile enterprofilename]
+role_arn = arn:aws:iam::111111111111:role/ROLENAME
+credential_source = Ec2InstanceMetadata
+
+6.    Save the file.
+
+Verify the instance profile
+To verify that your instance's role (instance profile) can assume the role in Account B, run the following command while connected to the instance. Replace profilename with the name of the role that you attached to the instance.
+
+$aws sts get-caller-identity --profile profilename
+The command returns a response similar to the following:
+
+"Account": "11111111111",
+
+"UserId": "AROAEXAMPLEID:sessionName",
+
+"Arn": "arn:aws:sts::111111111111:assumed-role/ROLENAME/sessionName"
+Confirm that the value for "Arn" matches the ARN of the role that you created in Account B.
+
+####Verify access to the Amazon S3 bucket
+
+To verify that your instance can access the Amazon S3 bucket, run this list command while connected to the instance. Replace profilename with the name of the role that you attached to the instance.
+
+aws s3 ls s3://DOC-EXAMPLE-BUCKET --profile profilename
+
